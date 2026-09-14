@@ -1,6 +1,6 @@
 # Meu Delivery WEB
 
-Sistema de delivery desenvolvido para as disciplinas de **Aplicações para Smartphones** e **Projeto de Banco de Dados**.
+Sistema de delivery desenvolvido para as disciplinas de **DESENVOLVIMENTO PARA DISPOSITIVOS MÓVEIS** e **PROJETO DE BANCO DE DADOS**.
 
 O projeto possui uma aplicação web para gerenciamento do sistema de delivery, uma API responsável pela comunicação com o banco de dados PostgreSQL e telas específicas para os diferentes perfis de usuário.
 
