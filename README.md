@@ -224,9 +224,3 @@ http://localhost:3000
 é utilizado pela aplicação web para realizar as requisições à API.
 
 O arquivo `.env` contém informações de configuração do banco de dados e, por segurança, deve permanecer apenas na máquina local.
-
-## Autores
-
-Projeto desenvolvido pelos alunos da equipe para as disciplinas de **Aplicações para Smartphones** e **Projeto de Banco de Dados**.
-
-**Universidade Federal Rural de Pernambuco — UAST**
