@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Login</title>
+</head>
+<body>
+    <div class="main-login">
+        <div class="left-login">
+            <h1>BEM-VINDO AO</h1>
+            <img src="logolaranja.png" class="left-login-image" alt="logo-meu-delivery">
+        </div>
+
+        <div class="right-login">
+            <div class="card-login">
+                <h1>LOGIN</h1>
+                <br>
+                <div class="textfield">
+                    <input type="email" id="email" required name="email" placeholder="usuario@gmail.com">
+                </div>
+                <div class="textfield">
+                    <input type="password" id="senha" required name="senha" placeholder="senha">
+                </div>
+
+
+
+                <div id="mensagem-erro" class="mensagem-erro">
+                    <span>!</span>
+                    <p>E-mail ou senha inválidos.</p>
+                </div>
+
+
+
+                <button type="submit" id="btn-login" class="btn-login">Entrar</button>
+                <a href="http://127.0.0.1:5500/web/cadastro/index.html" class="btn-cadastro">
+                    Cadastre-se
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts.js"></script>
+    
+</body>
+</html>

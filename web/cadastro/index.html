@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.min.css" integrity="sha512-QeR2VH+lsBE5LSAe1Q5EnTBbe7XTBubt8dG93Y7gidSgdMCr8nVqKcfKAMyN96SV8KDbZVTDXChatu5G2KQGzg==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <title>Cadastro</title>
+</head>
+<body>
+    <div class="main-login">
+        <div class="left-login">
+            <h1>BEM-VINDO AO</h1>
+            <img src="logolaranja.png" class="left-login-image" alt="logo-meu-delivery">
+        </div>
+
+        <div class="right-login">
+            <div class="card-login">
+                <h1>CADASTRO</h1> <br>
+                <div class="textfield">
+                    <input type="text" id="nome" name="nome" placeholder="Nome"></input>
+                </div>
+
+                <div class="textfield">
+                    <input type="email" id="email" name="email" placeholder="E-mail"></input>
+                </div>
+                <div class="textfield">
+                    <input type="tel" id="telefone"  name="telefone" placeholder="Tel: (99) 99999-9999"  required></input>
+                </div>
+                <div class="textfield">
+                    <input type="password" id="senha" name="senha" placeholder="Senha"></input>
+                </div>
+
+                <div class="radio-grup">
+                    <div class="grup1">
+
+                        <label>
+                            <input type="radio" name="perfil" value="ADMINISTRADOR">
+                            <div class="nome">
+                                <span class="indicador"></span>
+                                <span class="label">Administrador</span>
+                            </div>
+                        </label>
+                        
+                        <label>
+                            <input type="radio" name="perfil" value="LOJA">
+                            <div class="nome">
+                                <span class="indicador"></span>
+                                <span class="label">Loja</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="grup2">
+                        <label>
+                            <input type="radio" name="perfil" value="CLIENTE">
+                            <div class="nome">
+                                <span class="indicador"></span>
+                                <span class="label">Cliente</span>
+                            </div>
+                        </label>
+                        
+                        <label>
+                            <input type="radio" name="perfil" value="ENTREGADOR">
+                            <div class="nome-perfil">
+                                <span class="indicador"></span>
+                                <span class="label">Entregador</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="mensagem" class="mensagem">
+                    <span id="icone-mensagem">!</span>
+                    <p id="texto-mensagem"></p>
+                </div>
+
+                <button type="submit" id="btn-cadastro" class="btn-cadastro">Cadastrar-se</button>
+                 <a href="http://127.0.0.1:5500/web/login/index.html" class="btn-login">
+                    Faça login
+                </a>
+                
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts.js"></script>
+
+</body>
+</html>

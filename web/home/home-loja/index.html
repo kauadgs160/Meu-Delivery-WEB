@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="style.css">
+
+    <title>Minha Loja - Meu Delivery</title>
+</head>
+
+<body data-perfil="LOJA">
+
+    <div class="layout">
+
+        <!-- MENU LATERAL -->
+        <aside class="sidebar">
+
+            <div class="logo-area">
+                <img src="logolaranja.png" alt="Meu Delivery">
+            </div>
+
+            <nav class="menu">
+
+                <a href="#" class="menu-item ativo">
+                    <span>🏠</span>
+                    Início
+                </a>
+
+                <a href="#" class="menu-item">
+                    <span>🏪</span>
+                    Minha Loja
+                </a>
+
+                <a href="#" class="menu-item">
+                    <span>📦</span>
+                    Pedidos
+                </a>
+
+                <a href="#" class="menu-item">
+                    <span>🕐</span>
+                    Horários
+                </a>
+
+            </nav>
+
+            <button id="btn-sair" class="btn-sair">
+                Sair
+            </button>
+
+        </aside>
+
+
+        <!-- CONTEÚDO -->
+        <main class="conteudo">
+
+            <!-- TOPO -->
+            <header class="topo">
+
+                <div>
+                    <h1>Olá, <span id="nome-loja-topo">Loja</span>!</h1>
+                    <p>Gerencie seu estabelecimento</p>
+                </div>
+
+                <div class="status-area">
+
+                    <div id="status-indicador" class="status fechado">
+                        <span></span>
+                        <strong id="status-texto">Fechada</strong>
+                    </div>
+
+                    <button id="btn-status" class="btn-status">
+                        Abrir loja
+                    </button>
+
+                </div>
+
+            </header>
+
+
+            <!-- ALERTA DE STATUS -->
+            <div id="mensagem" class="mensagem">
+                <span id="icone-mensagem">!</span>
+                <p id="texto-mensagem"></p>
+            </div>
+
+
+            <!-- INFORMAÇÕES -->
+            <section class="card">
+
+                <div class="card-titulo">
+                    <div>
+                        <h2>Dados da loja</h2>
+                        <p>Essas informações aparecerão para os clientes.</p>
+                    </div>
+                </div>
+
+
+                <div class="dados-grid">
+
+                    <div class="foto-area">
+
+                        <div class="foto-preview">
+                            <img id="preview-foto"
+                                 src="https://via.placeholder.com/180"
+                                 alt="Foto da loja">
+                        </div>
+
+                        <label for="foto" class="btn-foto">
+                            Escolher foto
+                        </label>
+
+                        <input
+                            type="file"
+                            id="foto"
+                            accept="image/*"
+                        >
+
+                    </div>
+
+
+                    <div class="form-area">
+
+                        <div class="linha-form">
+
+                            <div class="campo">
+                                <label for="nome">Nome da loja</label>
+                                <input
+                                    type="text"
+                                    id="nome"
+                                    placeholder="Ex: Lanches do Kauã"
+                                >
+                            </div>
+
+                            <div class="campo">
+                                <label for="categoria">Categoria</label>
+
+                                <select id="categoria">
+                                    <option value="">Selecione</option>
+                                    <option value="LANCHES">Lanches</option>
+                                    <option value="PIZZARIA">Pizzaria</option>
+                                    <option value="ACAI">Açaí</option>
+                                    <option value="MERCADO">Mercado</option>
+                                </select>
+                            </div>
+
+                        </div>
+
+
+                        <div class="linha-form">
+
+                            <div class="campo">
+                                <label for="telefone">Telefone</label>
+
+                                <input type="tel" id="telefone" placeholder="(99) 99999-9999">
+                            </div>
+
+                            <div class="campo">
+                                <label for="endereco">Endereço</label>
+
+                                <input
+                                    type="text"
+                                    id="endereco"
+                                    placeholder="Rua, número, bairro"
+                                >
+                            </div>
+
+                        </div>
+
+
+                        <div class="pagamentos">
+
+                            <label>Formas de pagamento</label>
+
+                            <div class="pagamentos-opcoes">
+
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        name="pagamento"
+                                        value="DINHEIRO"
+                                    >
+                                    Dinheiro
+                                </label>
+
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        name="pagamento"
+                                        value="PIX"
+                                    >
+                                    Pix
+                                </label>
+
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        name="pagamento"
+                                        value="CARTAO"
+                                    >
+                                    Cartão
+                                </label>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- HORÁRIOS -->
+            <section class="card">
+
+                <div class="card-titulo">
+
+                    <div>
+                        <h2>Horário de funcionamento</h2>
+                        <p>
+                            Defina quando sua loja pode receber pedidos.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="horarios">
+
+                    <div class="horario-cabecalho">
+                        <span>Dia</span>
+                        <span>Funcionamento</span>
+                        <span>Abertura</span>
+                        <span>Fechamento</span>
+                    </div>
+
+
+                    <div class="dia">
+
+                        <strong>Segunda-feira</strong>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="seg-ativo"
+                                checked
+                            >
+                            <span></span>
+                        </label>
+
+                        <input
+                            type="time"
+                            id="seg-abertura"
+                            value="08:00"
+                        >
+
+                        <input
+                            type="time"
+                            id="seg-fechamento"
+                            value="18:00"
+                        >
+
+                    </div>
+
+
+                    <div class="dia">
+
+                        <strong>Terça-feira</strong>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="ter-ativo"
+                                checked
+                            >
+                            <span></span>
+                        </label>
+
+                        <input
+                            type="time"
+                            id="ter-abertura"
+                            value="08:00"
+                        >
+
+                        <input
+                            type="time"
+                            id="ter-fechamento"
+                            value="18:00"
+                        >
+
+                    </div>
+
+
+                    <div class="dia">
+
+                        <strong>Quarta-feira</strong>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="qua-ativo"
+                                checked
+                            >
+                            <span></span>
+                        </label>
+
+                        <input
+                            type="time"
+                            id="qua-abertura"
+                            value="08:00"
+                        >
+
+                        <input
+                            type="time"
+                            id="qua-fechamento"
+                            value="18:00"
+                        >
+
+                    </div>
+
+
+                    <div class="dia">
+
+                        <strong>Quinta-feira</strong>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="qui-ativo"
+                                checked
+                            >
+                            <span></span>
+                        </label>
+
+                        <input
+                            type="time"
+                            id="qui-abertura"
+                            value="08:00"
+                        >
+
+                        <input
+                            type="time"
+                            id="qui-fechamento"
+                            value="18:00"
+                        >
+
+                    </div>
+
+
+                    <div class="dia">
+
+                        <strong>Sexta-feira</strong>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="sex-ativo"
+                                checked
+                            >
+                            <span></span>
+                        </label>
+
+                        <input
+                            type="time"
+                            id="sex-abertura"
+                            value="08:00"
+                        >
+
+                        <input
+                            type="time"
+                            id="sex-fechamento"
+                            value="18:00"
+                        >
+
+                    </div>
+
+
+                    <div class="dia">
+
+                        <strong>Sábado</strong>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="sab-ativo"
+                                checked
+                            >
+                            <span></span>
+                        </label>
+
+                        <input
+                            type="time"
+                            id="sab-abertura"
+                            value="08:00"
+                        >
+
+                        <input
+                            type="time"
+                            id="sab-fechamento"
+                            value="18:00"
+                        >
+
+                    </div>
+
+
+                    <div class="dia">
+
+                        <strong>Domingo</strong>
+
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="dom-ativo"
+                            >
+                            <span></span>
+                        </label>
+
+                        <input
+                            type="time"
+                            id="dom-abertura"
+                            value="08:00"
+                        >
+
+                        <input
+                            type="time"
+                            id="dom-fechamento"
+                            value="18:00"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <button id="btn-salvar" class="btn-salvar">
+                    Salvar alterações
+                </button>
+
+            </section>
+
+
+        </main>
+
+    </div>
+
+    <script src="../../../js/proteger.js"></script>
+    <script src="scripts.js"></script>
+
+</body>
+
+</html>
