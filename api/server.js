@@ -7,7 +7,90 @@ const db = require('./db');
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+
+async function geocodificarEndereco(endereco) {
+
+    // Primeira tentativa: endereço completo
+    let consultas = [
+        endereco
+    ];
+
+    // Segunda tentativa:
+    // remove o número da casa e tenta apenas a rua + cidade
+    const enderecoSimplificado = endereco.replace(
+        /,\s*\d+\s*,/,
+        ','
+    );
+
+    if (enderecoSimplificado !== endereco) {
+        consultas.push(enderecoSimplificado);
+    }
+
+    for (const consulta of consultas) {
+
+        const url =
+            'https://nominatim.openstreetmap.org/search?' +
+            new URLSearchParams({
+                q: consulta,
+                format: 'json',
+                limit: '1',
+                countrycodes: 'br'
+            });
+
+        const resposta = await fetch(url, {
+            headers: {
+                'User-Agent': 'MeuDeliveryWeb/1.0'
+            }
+        });
+
+        if (!resposta.ok) {
+            continue;
+        }
+
+        const resultados = await resposta.json();
+
+        console.log('Busca de endereço:', consulta);
+        console.log('Resultado:', resultados);
+
+        if (resultados.length > 0) {
+
+            return {
+                latitude: Number(resultados[0].lat),
+                longitude: Number(resultados[0].lon)
+            };
+        }
+    }
+
+    return null;
+}
+
+
+
+
+
+
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return Number((R * c).toFixed(2));
+}
+
+
+
+
+
 
 app.get('/', (req, res) => {
     res.send('API do Meu Delivery funcionando!');
@@ -148,14 +231,16 @@ app.post('/login', async (req, res) => {
 app.put('/lojas', async (req, res) => {
 
     const {
-        usuario_id,
-        nome,
-        categoria,
-        telefone,
-        endereco,
-        pagamentos,
-        horarios
-    } = req.body;
+    usuario_id,
+    nome,
+    categoria,
+    telefone,
+    endereco,
+    pagamentos,
+    horarios,
+    faixas,
+    foto
+} = req.body;
 
     if (
         !usuario_id ||
@@ -170,6 +255,14 @@ app.put('/lojas', async (req, res) => {
     }
 
     try {
+
+        const coordenadas = await geocodificarEndereco(endereco);
+
+        if (!coordenadas) {
+            return res.status(400).json({
+                mensagem: 'Não foi possível localizar o endereço da loja.'
+            });
+        }
 
         // Verifica se o usuário existe e é uma loja
         const usuario = await db.query(
@@ -201,15 +294,18 @@ app.put('/lojas', async (req, res) => {
             // Cria a loja
             const novaLoja = await db.query(
                 `INSERT INTO loja
-                (usuario_id, nome, categoria, telefone, endereco)
-                VALUES ($1, $2, $3, $4, $5)
+                (usuario_id, nome, categoria, telefone, endereco, latitude, longitude, foto)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING id`,
                 [
                     usuario_id,
                     nome,
                     categoria,
                     telefone,
-                    endereco
+                    endereco,
+                    coordenadas.latitude,
+                    coordenadas.longitude,
+                    foto || null
                 ]
             );
 
@@ -220,17 +316,19 @@ app.put('/lojas', async (req, res) => {
             // Atualiza a loja existente
             const lojaAtualizada = await db.query(
                 `UPDATE loja
-                 SET nome = $1,
-                     categoria = $2,
-                     telefone = $3,
-                     endereco = $4
-                 WHERE usuario_id = $5
-                 RETURNING id`,
+                SET nome = $1,
+                    categoria = $2,
+                    telefone = $3,
+                    endereco = $4,
+                    foto = $5
+                WHERE usuario_id = $6
+                RETURNING id`,
                 [
                     nome,
                     categoria,
                     telefone,
                     endereco,
+                    foto || null,
                     usuario_id
                 ]
             );
@@ -294,6 +392,37 @@ app.put('/lojas', async (req, res) => {
         }
 
 
+
+        // ==========================
+        // FAIXAS DE ENTREGA
+        // ==========================
+
+        await db.query(
+            `DELETE FROM faixa_entrega
+            WHERE loja_id = $1`,
+            [lojaId]
+        );
+
+        if (Array.isArray(faixas)) {
+
+            for (const faixa of faixas) {
+
+                await db.query(
+                    `INSERT INTO faixa_entrega
+                    (loja_id, distancia_maxima, taxa)
+                    VALUES ($1, $2, $3)`,
+                    [
+                        lojaId,
+                        faixa.distancia_maxima,
+                        faixa.taxa
+                    ]
+                );
+
+            }
+        }
+
+
+
         res.status(200).json({
             mensagem: 'Dados da loja salvos com sucesso!'
         });
@@ -318,7 +447,7 @@ app.get('/lojas/:usuario_id', async (req, res) => {
     try {
 
         const lojaResultado = await db.query(
-            `SELECT id, nome, categoria, telefone, endereco, aberta
+            `SELECT id, nome, categoria, telefone, endereco, aberta, foto
              FROM loja
              WHERE usuario_id = $1`,
             [usuario_id]
@@ -347,10 +476,20 @@ app.get('/lojas/:usuario_id', async (req, res) => {
             [loja.id]
         );
 
+        const faixasResultado = await db.query(
+            `SELECT id, distancia_maxima, taxa
+            FROM faixa_entrega
+            WHERE loja_id = $1
+            ORDER BY distancia_maxima`,
+            [loja.id]
+        );
+
+
         res.json({
             loja: loja,
             pagamentos: pagamentosResultado.rows.map(p => p.tipo),
-            horarios: horariosResultado.rows
+            horarios: horariosResultado.rows,
+            faixas: faixasResultado.rows
         });
 
     } catch (erro) {
@@ -407,6 +546,1202 @@ app.patch('/lojas/status', async (req, res) => {
         res.status(500).json({
             mensagem: 'Erro ao alterar o status da loja.'
         });
+    }
+});
+
+
+
+
+app.post('/lojas/:loja_id/taxa-entrega', async (req, res) => {
+    const { loja_id } = req.params;
+    const { endereco } = req.body;
+
+    if (!endereco) {
+        return res.status(400).json({
+            erro: 'Endereço é obrigatório.'
+        });
+    }
+
+    try {
+        // Busca a localização da loja
+        const resultadoLoja = await db.query(
+            `SELECT latitude, longitude
+             FROM loja
+             WHERE id = $1`,
+            [loja_id]
+        );
+
+        if (resultadoLoja.rows.length === 0) {
+            return res.status(404).json({
+                erro: 'Loja não encontrada.'
+            });
+        }
+
+        const loja = resultadoLoja.rows[0];
+
+        if (loja.latitude === null || loja.longitude === null) {
+            return res.status(400).json({
+                erro: 'A loja ainda não possui localização cadastrada.'
+            });
+        }
+
+        // Converte o endereço do cliente em coordenadas
+        const coordenadasCliente = await geocodificarEndereco(endereco);
+
+        if (!coordenadasCliente) {
+            return res.status(400).json({
+                erro: 'Não foi possível localizar o endereço informado.'
+            });
+        }
+
+        // Calcula a distância entre a loja e o endereço
+        const distanciaKm = calcularDistanciaKm(
+            Number(loja.latitude),
+            Number(loja.longitude),
+            coordenadasCliente.latitude,
+            coordenadasCliente.longitude
+        );
+
+        // Procura a primeira faixa que atende essa distância
+        const resultadoFaixa = await db.query(
+            `SELECT distancia_maxima, taxa
+             FROM faixa_entrega
+             WHERE loja_id = $1
+               AND distancia_maxima >= $2
+             ORDER BY distancia_maxima ASC
+             LIMIT 1`,
+            [loja_id, distanciaKm]
+        );
+
+        // Fora de todas as faixas
+        if (resultadoFaixa.rows.length === 0) {
+            return res.json({
+                dentro_area: false,
+                endereco,
+                distancia_km: distanciaKm,
+                taxa: null,
+                mensagem: 'Endereço fora da área de entrega.'
+            });
+        }
+
+        const faixa = resultadoFaixa.rows[0];
+
+        return res.json({
+            dentro_area: true,
+            endereco,
+            distancia_km: distanciaKm,
+            taxa: Number(faixa.taxa),
+            distancia_maxima: Number(faixa.distancia_maxima)
+        });
+
+    } catch (erro) {
+        console.error('Erro ao consultar taxa de entrega:', erro);
+
+        res.status(500).json({
+            erro: 'Erro ao calcular taxa de entrega.'
+        });
+    }
+});
+
+
+
+
+// ==================================================
+// CATEGORIAS - LISTAR
+// ==================================================
+
+app.get('/categorias/:usuario_id', async (req, res) => {
+
+    const { usuario_id } = req.params;
+
+    try {
+
+        const resultado = await db.query(
+            `SELECT c.id, c.nome
+             FROM categoria c
+             INNER JOIN loja l ON l.id = c.loja_id
+             WHERE l.usuario_id = $1
+             ORDER BY c.nome`,
+            [usuario_id]
+        );
+
+        res.json(resultado.rows);
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao buscar categorias.'
+        });
+    }
+});
+
+
+// ==================================================
+// CATEGORIAS - CRIAR
+// ==================================================
+
+app.post('/categorias', async (req, res) => {
+
+    const { usuario_id, nome } = req.body;
+
+    if (!usuario_id || !nome) {
+        return res.status(400).json({
+            mensagem: 'Informe o usuário e o nome da categoria.'
+        });
+    }
+
+    try {
+
+        const loja = await db.query(
+            `SELECT id
+             FROM loja
+             WHERE usuario_id = $1`,
+            [usuario_id]
+        );
+
+        if (loja.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: 'Loja não encontrada.'
+            });
+        }
+
+        const lojaId = loja.rows[0].id;
+
+        const resultado = await db.query(
+            `INSERT INTO categoria
+            (loja_id, nome)
+            VALUES ($1, $2)
+            RETURNING id, nome`,
+            [lojaId, nome.trim()]
+        );
+
+        res.status(201).json({
+            mensagem: 'Categoria criada com sucesso!',
+            categoria: resultado.rows[0]
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        if (erro.code === '23505') {
+            return res.status(409).json({
+                mensagem: 'Essa categoria já existe.'
+            });
+        }
+
+        res.status(500).json({
+            mensagem: 'Erro ao criar categoria.'
+        });
+    }
+});
+
+
+// ==================================================
+// CATEGORIAS - EDITAR
+// ==================================================
+
+app.put('/categorias/:id', async (req, res) => {
+
+    const { id } = req.params;
+    const { usuario_id, nome } = req.body;
+
+    if (!usuario_id || !nome) {
+        return res.status(400).json({
+            mensagem: 'Informe o usuário e o nome da categoria.'
+        });
+    }
+
+    try {
+
+        const resultado = await db.query(
+            `UPDATE categoria c
+             SET nome = $1
+             FROM loja l
+             WHERE c.id = $2
+             AND c.loja_id = l.id
+             AND l.usuario_id = $3
+             RETURNING c.id, c.nome`,
+            [nome.trim(), id, usuario_id]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: 'Categoria não encontrada.'
+            });
+        }
+
+        res.json({
+            mensagem: 'Categoria atualizada com sucesso!',
+            categoria: resultado.rows[0]
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        if (erro.code === '23505') {
+            return res.status(409).json({
+                mensagem: 'Essa categoria já existe.'
+            });
+        }
+
+        res.status(500).json({
+            mensagem: 'Erro ao atualizar categoria.'
+        });
+    }
+});
+
+
+// ==================================================
+// CATEGORIAS - EXCLUIR
+// ==================================================
+
+app.delete('/categorias/:id', async (req, res) => {
+
+    const { id } = req.params;
+    const { usuario_id } = req.body;
+
+    if (!usuario_id) {
+        return res.status(400).json({
+            mensagem: 'Usuário não informado.'
+        });
+    }
+
+    try {
+
+        const produtos = await db.query(
+            `SELECT p.id
+             FROM produto p
+             INNER JOIN categoria c ON c.id = p.categoria_id
+             INNER JOIN loja l ON l.id = c.loja_id
+             WHERE c.id = $1
+             AND l.usuario_id = $2
+             LIMIT 1`,
+            [id, usuario_id]
+        );
+
+        if (produtos.rows.length > 0) {
+            return res.status(409).json({
+                mensagem: 'Não é possível excluir uma categoria que possui produtos.'
+            });
+        }
+
+        const resultado = await db.query(
+            `DELETE FROM categoria c
+             USING loja l
+             WHERE c.id = $1
+             AND c.loja_id = l.id
+             AND l.usuario_id = $2
+             RETURNING c.id`,
+            [id, usuario_id]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: 'Categoria não encontrada.'
+            });
+        }
+
+        res.json({
+            mensagem: 'Categoria excluída com sucesso!'
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao excluir categoria.'
+        });
+    }
+});
+
+
+
+
+// ==================================================
+// PRODUTOS - LISTAR
+// ==================================================
+
+app.post('/produtos', async (req, res) => {
+
+    const {
+        usuario_id,
+        categoria_id,
+        nome,
+        descricao,
+        preco,
+        foto,
+        disponivel,
+        grupos
+    } = req.body;
+
+    if (
+        !usuario_id ||
+        !categoria_id ||
+        !nome ||
+        !descricao ||
+        preco === undefined
+    ) {
+        return res.status(400).json({
+            mensagem: 'Preencha todos os dados do produto.'
+        });
+    }
+
+    try {
+
+        const categoria = await db.query(
+            `SELECT c.id
+             FROM categoria c
+             INNER JOIN loja l ON l.id = c.loja_id
+             WHERE c.id = $1
+             AND l.usuario_id = $2`,
+            [categoria_id, usuario_id]
+        );
+
+        if (categoria.rows.length === 0) {
+            return res.status(403).json({
+                mensagem: 'Categoria não pertence à loja.'
+            });
+        }
+
+        // Cria o produto
+        const produtoResultado = await db.query(
+            `INSERT INTO produto
+            (categoria_id, nome, descricao, preco, foto, disponivel)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id`,
+            [
+                categoria_id,
+                nome.trim(),
+                descricao.trim(),
+                Number(preco),
+                foto || null,
+                disponivel !== false
+            ]
+        );
+
+        const produtoId = produtoResultado.rows[0].id;
+
+        console.log('Produto criado:', produtoId);
+        console.log('Grupos recebidos:', grupos);
+
+        // Cria os grupos
+        if (Array.isArray(grupos)) {
+
+            for (const grupo of grupos) {
+
+                if (!grupo.nome) {
+                    continue;
+                }
+
+                const grupoResultado = await db.query(
+                    `INSERT INTO grupo_complemento
+                    (produto_id, nome, minimo, maximo)
+                    VALUES ($1, $2, $3, $4)
+                    RETURNING id`,
+                    [
+                        produtoId,
+                        grupo.nome.trim(),
+                        Number(grupo.min) || 0,
+                        Number(grupo.max) || 1
+                    ]
+                );
+
+                const grupoId = grupoResultado.rows[0].id;
+
+                console.log('Grupo criado:', grupoId);
+
+                // Cria os complementos do grupo
+                if (Array.isArray(grupo.opcoes)) {
+
+                    for (const opcao of grupo.opcoes) {
+
+                        if (!opcao.nome) {
+                            continue;
+                        }
+
+                        await db.query(
+                            `INSERT INTO complemento
+                            (grupo_id, nome, preco)
+                            VALUES ($1, $2, $3)`,
+                            [
+                                grupoId,
+                                opcao.nome.trim(),
+                                Number(opcao.preco) || 0
+                            ]
+                        );
+
+                        console.log(
+                            'Complemento criado:',
+                            opcao.nome
+                        );
+                    }
+                }
+            }
+        }
+
+        res.status(201).json({
+            mensagem: 'Produto cadastrado com sucesso!'
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao cadastrar produto.'
+        });
+    }
+});
+
+
+// ==================================================
+// PRODUTOS - CRIAR
+// ==================================================
+
+app.post('/produtos', async (req, res) => {
+
+    const {
+        usuario_id,
+        categoria_id,
+        nome,
+        descricao,
+        preco,
+        foto,
+        disponivel,
+        grupos
+    } = req.body;
+
+    if (
+        !usuario_id ||
+        !categoria_id ||
+        !nome ||
+        !descricao ||
+        preco === undefined
+    ) {
+        return res.status(400).json({
+            mensagem: 'Preencha todos os dados do produto.'
+        });
+    }
+
+    try {
+
+        const categoria = await db.query(
+            `SELECT c.id
+             FROM categoria c
+             INNER JOIN loja l
+                ON l.id = c.loja_id
+             WHERE c.id = $1
+             AND l.usuario_id = $2`,
+            [categoria_id, usuario_id]
+        );
+
+        if (categoria.rows.length === 0) {
+            return res.status(403).json({
+                mensagem: 'Categoria não pertence à loja.'
+            });
+        }
+
+        await db.query('BEGIN');
+
+        const produtoResultado = await db.query(
+            `INSERT INTO produto
+            (
+                categoria_id,
+                nome,
+                descricao,
+                preco,
+                foto,
+                disponivel
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id`,
+            [
+                categoria_id,
+                nome.trim(),
+                descricao.trim(),
+                Number(preco),
+                foto || null,
+                disponivel !== false
+            ]
+        );
+
+        const produtoId = produtoResultado.rows[0].id;
+
+        if (Array.isArray(grupos)) {
+
+            for (const grupo of grupos) {
+
+                if (!grupo.nome) {
+                    continue;
+                }
+
+                const grupoResultado = await db.query(
+                    `INSERT INTO grupo_complemento
+                    (produto_id, nome, minimo, maximo)
+                    VALUES ($1, $2, $3, $4)
+                    RETURNING id`,
+                    [
+                        produtoId,
+                        grupo.nome.trim(),
+                        Number(grupo.min) || 0,
+                        Number(grupo.max) || 1
+                    ]
+                );
+
+                const grupoId = grupoResultado.rows[0].id;
+
+                if (Array.isArray(grupo.opcoes)) {
+
+                    for (const opcao of grupo.opcoes) {
+
+                        if (!opcao.nome) {
+                            continue;
+                        }
+
+                        await db.query(
+                            `INSERT INTO complemento
+                            (grupo_id, nome, preco)
+                            VALUES ($1, $2, $3)`,
+                            [
+                                grupoId,
+                                opcao.nome.trim(),
+                                Number(opcao.preco) || 0
+                            ]
+                        );
+                    }
+                }
+            }
+        }
+
+        await db.query('COMMIT');
+
+        res.status(201).json({
+            mensagem: 'Produto cadastrado com sucesso!'
+        });
+
+    } catch (erro) {
+
+        await db.query('ROLLBACK');
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao cadastrar produto.'
+        });
+    }
+});
+
+
+
+
+// ==================================================
+// PRODUTOS - EDITAR
+// ==================================================
+
+app.put('/produtos/:id', async (req, res) => {
+
+    const { id } = req.params;
+
+    const {
+        usuario_id,
+        categoria_id,
+        nome,
+        descricao,
+        preco,
+        foto,
+        disponivel,
+        grupos
+    } = req.body;
+
+    if (
+        !usuario_id ||
+        !categoria_id ||
+        !nome ||
+        !descricao ||
+        preco === undefined
+    ) {
+        return res.status(400).json({
+            mensagem: 'Preencha todos os dados do produto.'
+        });
+    }
+
+    try {
+
+        // Confirma que a categoria pertence à loja
+        const categoria = await db.query(
+            `SELECT c.id
+             FROM categoria c
+             INNER JOIN loja l
+                ON l.id = c.loja_id
+             WHERE c.id = $1
+             AND l.usuario_id = $2`,
+            [categoria_id, usuario_id]
+        );
+
+        if (categoria.rows.length === 0) {
+            return res.status(403).json({
+                mensagem: 'Categoria não pertence à loja.'
+            });
+        }
+
+
+        // Atualiza o produto
+        const produtoResultado = await db.query(
+            `UPDATE produto p
+             SET categoria_id = $1,
+                 nome = $2,
+                 descricao = $3,
+                 preco = $4,
+                 foto = $5,
+                 disponivel = $6
+             FROM categoria c
+             INNER JOIN loja l
+                ON l.id = c.loja_id
+             WHERE p.id = $7
+             AND p.categoria_id = c.id
+             AND l.usuario_id = $8
+             AND p.excluido = FALSE
+             RETURNING p.id`,
+            [
+                categoria_id,
+                nome.trim(),
+                descricao.trim(),
+                Number(preco),
+                foto || null,
+                disponivel !== false,
+                id,
+                usuario_id
+            ]
+        );
+
+        if (produtoResultado.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: 'Produto não encontrado.'
+            });
+        }
+
+
+        // Remove os grupos atuais
+        await db.query(
+            `DELETE FROM grupo_complemento
+             WHERE produto_id = $1`,
+            [id]
+        );
+
+
+        // Cria novamente os grupos atuais
+        if (Array.isArray(grupos)) {
+
+            for (const grupo of grupos) {
+
+                if (!grupo.nome) {
+                    continue;
+                }
+
+                const grupoResultado = await db.query(
+                    `INSERT INTO grupo_complemento
+                    (produto_id, nome, minimo, maximo)
+                    VALUES ($1, $2, $3, $4)
+                    RETURNING id`,
+                    [
+                        id,
+                        grupo.nome.trim(),
+                        Number(grupo.min) || 0,
+                        Number(grupo.max) || 1
+                    ]
+                );
+
+                const grupoId = grupoResultado.rows[0].id;
+
+
+                if (Array.isArray(grupo.opcoes)) {
+
+                    for (const opcao of grupo.opcoes) {
+
+                        if (!opcao.nome) {
+                            continue;
+                        }
+
+                        await db.query(
+                            `INSERT INTO complemento
+                            (grupo_id, nome, preco)
+                            VALUES ($1, $2, $3)`,
+                            [
+                                grupoId,
+                                opcao.nome.trim(),
+                                Number(opcao.preco) || 0
+                            ]
+                        );
+                    }
+                }
+            }
+        }
+
+
+        res.json({
+            mensagem: 'Produto atualizado com sucesso!'
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao atualizar produto.'
+        });
+    }
+});
+
+
+
+
+
+
+// ==================================================
+// PRODUTOS - EXCLUIR LOGICAMENTE
+// ==================================================
+
+app.delete('/produtos/:id', async (req, res) => {
+
+    const { id } = req.params;
+    const { usuario_id } = req.body;
+
+    try {
+
+        const resultado = await db.query(
+            `UPDATE produto p
+             SET excluido = TRUE,
+                 disponivel = FALSE
+             FROM categoria c
+             INNER JOIN loja l
+                ON l.id = c.loja_id
+             WHERE p.id = $1
+             AND p.categoria_id = c.id
+             AND l.usuario_id = $2
+             AND p.excluido = FALSE
+             RETURNING p.id`,
+            [id, usuario_id]
+        );
+
+        if (resultado.rows.length === 0) {
+
+            return res.status(404).json({
+                mensagem: 'Produto não encontrado.'
+            });
+        }
+
+        res.json({
+            mensagem: 'Produto removido com sucesso!'
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao excluir produto.'
+        });
+    }
+});
+
+
+// ==================================================
+// PRODUTOS - DISPONIBILIDADE
+// ==================================================
+
+app.patch('/produtos/:id/disponibilidade', async (req, res) => {
+
+    const { id } = req.params;
+    const { usuario_id, disponivel } = req.body;
+
+    try {
+
+        const resultado = await db.query(
+            `UPDATE produto p
+             SET disponivel = $1
+             FROM categoria c
+             INNER JOIN loja l
+                ON l.id = c.loja_id
+             WHERE p.id = $2
+             AND p.categoria_id = c.id
+             AND l.usuario_id = $3
+             AND p.excluido = FALSE
+             RETURNING p.disponivel`,
+            [disponivel, id, usuario_id]
+        );
+
+        if (resultado.rows.length === 0) {
+
+            return res.status(404).json({
+                mensagem: 'Produto não encontrado.'
+            });
+        }
+
+        res.json({
+            mensagem: disponivel
+                ? 'Produto disponibilizado no cardápio.'
+                : 'Produto retirado do cardápio do aplicativo.',
+            disponivel: resultado.rows[0].disponivel
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao alterar disponibilidade.'
+        });
+    }
+});
+
+
+
+app.get('/produtos/:usuario_id', async (req, res) => {
+
+    const { usuario_id } = req.params;
+
+    try {
+
+        const resultado = await db.query(
+            `SELECT
+                p.id,
+                p.categoria_id,
+                p.nome,
+                p.descricao,
+                p.preco,
+                p.foto,
+                p.disponivel
+             FROM produto p
+             INNER JOIN categoria c
+                ON c.id = p.categoria_id
+             INNER JOIN loja l
+                ON l.id = c.loja_id
+             WHERE l.usuario_id = $1
+             AND p.excluido = FALSE
+             ORDER BY p.id`,
+            [usuario_id]
+        );
+
+        const produtos = [];
+
+        for (const produto of resultado.rows) {
+
+            const gruposResultado = await db.query(
+                `SELECT id, nome, minimo, maximo
+                 FROM grupo_complemento
+                 WHERE produto_id = $1
+                 ORDER BY id`,
+                [produto.id]
+            );
+
+            const grupos = [];
+
+            for (const grupo of gruposResultado.rows) {
+
+                const opcoesResultado = await db.query(
+                    `SELECT id, nome, preco
+                     FROM complemento
+                     WHERE grupo_id = $1
+                     ORDER BY id`,
+                    [grupo.id]
+                );
+
+                grupos.push({
+                    id: grupo.id,
+                    nome: grupo.nome,
+                    min: grupo.minimo,
+                    max: grupo.maximo,
+                    opcoes: opcoesResultado.rows
+                });
+            }
+
+            produtos.push({
+                id: produto.id,
+                categoriaId: produto.categoria_id,
+                nome: produto.nome,
+                descricao: produto.descricao,
+                preco: Number(produto.preco),
+                foto: produto.foto,
+                disponivel: produto.disponivel,
+                grupos: grupos
+            });
+        }
+
+        res.json(produtos);
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao buscar produtos.'
+        });
+    }
+});
+
+
+
+// ==================================================
+// ALTERAR DISPONIBILIDADE DO PRODUTO
+// ==================================================
+
+app.patch('/produtos/:id/disponibilidade', async (req, res) => {
+
+    const { id } = req.params;
+    const { usuario_id, disponivel } = req.body;
+
+    if (!usuario_id || typeof disponivel !== 'boolean') {
+        return res.status(400).json({
+            mensagem: 'Dados inválidos.'
+        });
+    }
+
+    try {
+
+        const resultado = await db.query(
+            `UPDATE produto p
+             SET disponivel = $1
+             FROM categoria c
+             INNER JOIN loja l
+                ON l.id = c.loja_id
+             WHERE p.id = $2
+             AND p.categoria_id = c.id
+             AND l.usuario_id = $3
+             AND p.excluido = FALSE
+             RETURNING p.id, p.disponivel`,
+            [disponivel, id, usuario_id]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: 'Produto não encontrado.'
+            });
+        }
+
+        res.json({
+            mensagem: disponivel
+                ? 'Produto disponibilizado no cardápio.'
+                : 'Produto retirado do cardápio do aplicativo.',
+            disponivel: resultado.rows[0].disponivel
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao alterar disponibilidade.'
+        });
+    }
+});
+
+
+
+app.get('/cardapio/:loja_id', async (req, res) => {
+
+    const { loja_id } = req.params;
+
+    try {
+
+        const categoriasResultado = await db.query(
+            `SELECT id, nome
+             FROM categoria
+             WHERE loja_id = $1
+             ORDER BY id`,
+            [loja_id]
+        );
+
+        const categorias = [];
+
+        for (const categoria of categoriasResultado.rows) {
+
+            const produtosResultado = await db.query(
+                `SELECT
+                    id,
+                    nome,
+                    descricao,
+                    preco,
+                    foto,
+                    disponivel
+                 FROM produto
+                 WHERE categoria_id = $1
+                 AND disponivel = TRUE
+                 AND excluido = FALSE
+                 ORDER BY id`,
+                [categoria.id]
+            );
+
+            const produtos = [];
+
+            for (const produto of produtosResultado.rows) {
+
+                const gruposResultado = await db.query(
+                    `SELECT
+                        id,
+                        nome,
+                        minimo,
+                        maximo
+                     FROM grupo_complemento
+                     WHERE produto_id = $1
+                     ORDER BY id`,
+                    [produto.id]
+                );
+
+                const grupos = [];
+
+                for (const grupo of gruposResultado.rows) {
+
+                    const complementosResultado = await db.query(
+                        `SELECT
+                            id,
+                            nome,
+                            preco
+                         FROM complemento
+                         WHERE grupo_id = $1
+                         ORDER BY id`,
+                        [grupo.id]
+                    );
+
+                    grupos.push({
+                        id: grupo.id,
+                        nome: grupo.nome,
+                        minimo: grupo.minimo,
+                        maximo: grupo.maximo,
+                        complementos: complementosResultado.rows
+                    });
+                }
+
+                produtos.push({
+                    id: produto.id,
+                    nome: produto.nome,
+                    descricao: produto.descricao,
+                    preco: Number(produto.preco),
+                    foto: produto.foto,
+                    grupos: grupos
+                });
+            }
+
+            categorias.push({
+                id: categoria.id,
+                nome: categoria.nome,
+                produtos: produtos
+            });
+        }
+
+        res.json({
+            loja_id: Number(loja_id),
+            categorias: categorias
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao buscar o cardápio.'
+        });
+    }
+});
+
+
+
+
+app.post('/pedidos', async (req, res) => {
+    const {
+        loja_id,
+        usuario_id,
+        endereco_entrega,
+        distancia_km,
+        subtotal_itens
+    } = req.body;
+
+    if (
+        !loja_id ||
+        !endereco_entrega ||
+        distancia_km === undefined ||
+        subtotal_itens === undefined
+    ) {
+        return res.status(400).json({
+            erro: 'Dados do pedido incompletos.'
+        });
+    }
+
+    const cliente = await db.connect();
+
+    try {
+        await cliente.query('BEGIN');
+
+        // Busca a taxa atual da loja para a distância informada
+        const resultadoFaixa = await cliente.query(
+            `SELECT distancia_maxima, taxa
+             FROM faixa_entrega
+             WHERE loja_id = $1
+               AND distancia_maxima >= $2
+             ORDER BY distancia_maxima ASC
+             LIMIT 1`,
+            [loja_id, distancia_km]
+        );
+
+        if (resultadoFaixa.rows.length === 0) {
+            await cliente.query('ROLLBACK');
+
+            return res.status(400).json({
+                dentro_area: false,
+                mensagem: 'Endereço fora da área de entrega.'
+            });
+        }
+
+        const taxa_entrega = Number(resultadoFaixa.rows[0].taxa);
+        const total = Number(subtotal_itens) + taxa_entrega;
+
+        // Guarda a taxa que estava valendo neste momento
+        const resultadoPedido = await cliente.query(
+            `INSERT INTO pedido
+            (
+                loja_id,
+                usuario_id,
+                endereco_entrega,
+                distancia_km,
+                subtotal_itens,
+                taxa_entrega,
+                total
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *`,
+            [
+                loja_id,
+                usuario_id || null,
+                endereco_entrega,
+                distancia_km,
+                subtotal_itens,
+                taxa_entrega,
+                total
+            ]
+        );
+
+        await cliente.query('COMMIT');
+
+        res.status(201).json({
+            mensagem: 'Pedido criado com sucesso.',
+            pedido: resultadoPedido.rows[0]
+        });
+
+    } catch (erro) {
+        await cliente.query('ROLLBACK');
+
+        console.error('Erro ao criar pedido:', erro);
+
+        res.status(500).json({
+            erro: 'Erro ao criar pedido.'
+        });
+
+    } finally {
+        cliente.release();
     }
 });
 

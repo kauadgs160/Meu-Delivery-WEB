@@ -561,3 +561,108 @@ body {
         padding: 20px;
     }
 }
+
+/* ÁREA DE ENTREGA */
+
+#faixas-entrega {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.faixa-entrega {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+    gap: 20px;
+
+    padding: 18px;
+
+    border: 1px solid #eee;
+    border-radius: 10px;
+
+    background: #fafafa;
+}
+
+.campo-distancia,
+.campo-taxa {
+    display: flex;
+    align-items: center;
+
+    border: 1px solid #ddd;
+    border-radius: 7px;
+
+    background: white;
+}
+
+.campo-distancia input,
+.campo-taxa input {
+    border: none;
+    outline: none;
+}
+
+.campo-distancia input {
+    flex: 1;
+}
+
+.campo-taxa input {
+    flex: 1;
+}
+
+.campo-distancia span,
+.campo-taxa span {
+    color: #777;
+    font-size: 14px;
+}
+
+.campo-distancia span {
+    padding-right: 12px;
+}
+
+.campo-taxa span {
+    padding-left: 12px;
+}
+
+.btn-adicionar-faixa {
+    margin-top: 20px;
+
+    padding: 11px 18px;
+
+    border: 1px dashed #ff7a00;
+    border-radius: 8px;
+
+    background: transparent;
+    color: #ff7a00;
+
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-adicionar-faixa:hover {
+    background: #fff4eb;
+}
+
+.btn-remover-faixa {
+    padding: 11px 15px;
+
+    border: 1px solid #ddd;
+    border-radius: 7px;
+
+    background: white;
+    color: #d93025;
+
+    cursor: pointer;
+}
+
+.btn-remover-faixa:hover {
+    background: #ffe5e5;
+}
+
+@media (max-width: 700px) {
+
+    .faixa-entrega {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+}

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="style.css">
+
+    <title>Cardápio - Meu Delivery</title>
+</head>
+
+<body data-perfil="LOJA">
+
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+
+            <div class="logo-area">
+                <img src="../logolaranja.png" alt="Meu Delivery">
+            </div>
+
+            <nav class="menu">
+
+                <a href="../index.html" class="menu-item">
+                    <span>🏠</span>
+                    Início
+                </a>
+
+                <a href="../index.html" class="menu-item">
+                    <span>🏪</span>
+                    Minha Loja
+                </a>
+
+                <a href="#" class="menu-item ativo">
+                    <span>🍔</span>
+                    Cardápio
+                </a>
+
+                <a href="#" class="menu-item">
+                    <span>📦</span>
+                    Pedidos
+                </a>
+
+                <a href="#" class="menu-item">
+                    <span>🕐</span>
+                    Horários
+                </a>
+
+            </nav>
+
+            <button id="btn-sair" class="btn-sair">
+                Sair
+            </button>
+
+        </aside>
+
+
+        <!-- CONTEÚDO -->
+        <main class="conteudo">
+
+            <!-- TOPO -->
+            <header class="topo">
+
+                <div>
+                    <h1>Cardápio</h1>
+                    <p>Monte o cardápio da sua loja.</p>
+                </div>
+
+                <button id="btn-nova-categoria" class="btn-principal">
+                    + Nova categoria
+                </button>
+
+            </header>
+
+
+            <!-- MENSAGEM -->
+            <div id="mensagem" class="mensagem">
+
+                <span id="icone-mensagem">!</span>
+
+                <p id="texto-mensagem"></p>
+
+            </div>
+
+
+            <!-- LAYOUT CARDÁPIO -->
+            <section class="cardapio-area">
+
+
+                <!-- CATEGORIAS -->
+                <aside class="categorias-card">
+
+                    <div class="categorias-topo">
+
+                        <div>
+                            <h2>Categorias</h2>
+                            <p>Organize seus produtos.</p>
+                        </div>
+
+                        <button
+                            id="btn-nova-categoria-2"
+                            class="btn-icon"
+                            title="Nova categoria"
+                        >
+                            +
+                        </button>
+
+                    </div>
+
+
+                    <div id="lista-categorias" class="lista-categorias">
+
+                        <!-- Categorias inseridas pelo JS -->
+
+                    </div>
+
+                </aside>
+
+
+                <!-- PRODUTOS -->
+                <section class="produtos-area">
+
+                    <div class="produtos-topo">
+
+                        <div>
+                            <h2 id="titulo-categoria">
+                                Todos os produtos
+                            </h2>
+
+                            <p id="contador-produtos">
+                                0 produtos
+                            </p>
+                        </div>
+
+                        <button
+                            id="btn-novo-produto"
+                            class="btn-principal"
+                        >
+                            + Novo produto
+                        </button>
+
+                    </div>
+
+
+                    <div id="lista-produtos" class="lista-produtos">
+
+                        <!-- Produtos inseridos pelo JS -->
+
+                    </div>
+
+
+                    <!-- ESTADO VAZIO -->
+                    <div id="estado-vazio" class="estado-vazio">
+
+                        <div class="icone-vazio">
+                            🍽️
+                        </div>
+
+                        <h3>Seu cardápio está vazio</h3>
+
+                        <p>
+                            Crie uma categoria e depois adicione
+                            os produtos da sua loja.
+                        </p>
+
+                        <button
+                            id="btn-vazio-produto"
+                            class="btn-principal"
+                        >
+                            + Adicionar produto
+                        </button>
+
+                    </div>
+
+                </section>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- =========================================================
+         MODAL CATEGORIA
+    ========================================================== -->
+
+    <div id="modal-categoria" class="modal">
+
+        <div class="modal-conteudo">
+
+            <div class="modal-topo">
+
+                <div>
+                    <h2 id="titulo-modal-categoria">
+                        Nova categoria
+                    </h2>
+
+                    <p>
+                        Crie uma categoria para organizar o cardápio.
+                    </p>
+                </div>
+
+                <button
+                    class="btn-fechar-modal"
+                    data-fechar="modal-categoria"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div class="campo-modal">
+
+                <label for="nome-categoria">
+                    Nome da categoria
+                </label>
+
+                <input
+                    type="text"
+                    id="nome-categoria"
+                    placeholder="Ex: Hambúrgueres"
+                >
+
+            </div>
+
+
+            <div class="acoes-modal">
+
+                <button
+                    class="btn-secundario"
+                    data-fechar="modal-categoria"
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    id="btn-salvar-categoria"
+                    class="btn-principal"
+                >
+                    Salvar categoria
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         MODAL PRODUTO
+    ========================================================== -->
+
+    <div id="modal-produto" class="modal">
+
+        <div class="modal-conteudo modal-produto-conteudo">
+
+            <div class="modal-topo">
+
+                <div>
+                    <h2 id="titulo-modal-produto">
+                        Novo produto
+                    </h2>
+
+                    <p>
+                        Cadastre as informações do produto.
+                    </p>
+                </div>
+
+                <button
+                    class="btn-fechar-modal"
+                    data-fechar="modal-produto"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div class="produto-form">
+
+                <!-- FOTO -->
+
+                <div class="foto-produto">
+
+                    <div class="foto-preview">
+
+                        <img
+                            id="preview-produto"
+                            src=""
+                            alt="Foto do produto"
+                        >
+
+                        <div
+                            id="placeholder-foto"
+                            class="placeholder-foto"
+                        >
+                            🍔
+                        </div>
+
+                    </div>
+
+                    <label
+                        for="foto-produto"
+                        class="btn-foto"
+                    >
+                        Escolher foto
+                    </label>
+
+                    <input
+                        type="file"
+                        id="foto-produto"
+                        accept="image/*"
+                    >
+
+                </div>
+
+
+                <!-- DADOS -->
+
+                <div class="dados-produto">
+
+                    <div class="linha-modal">
+
+                        <div class="campo-modal">
+
+                            <label for="nome-produto">
+                                Nome
+                            </label>
+
+                            <input
+                                type="text"
+                                id="nome-produto"
+                                placeholder="Ex: X-Bacon"
+                            >
+
+                        </div>
+
+
+                        <div class="campo-modal">
+
+                            <label for="categoria-produto">
+                                Categoria
+                            </label>
+
+                            <select id="categoria-produto">
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="campo-modal">
+
+                        <label for="descricao-produto">
+                            Descrição
+                        </label>
+
+                        <textarea
+                            id="descricao-produto"
+                            rows="4"
+                            placeholder="Descreva os ingredientes ou detalhes do produto."
+                        ></textarea>
+
+                    </div>
+
+
+                    <div class="linha-modal">
+
+                        <div class="campo-modal">
+
+                            <label for="preco-produto">
+                                Preço
+                            </label>
+
+                            <div class="input-preco">
+
+                                <span>R$</span>
+
+                                <input
+                                    type="number"
+                                    id="preco-produto"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0,00"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="campo-modal">
+
+                            <label>Disponibilidade</label>
+
+                            <label class="switch-grande">
+
+                                <input
+                                    type="checkbox"
+                                    id="produto-disponivel"
+                                    checked
+                                >
+
+                                <span></span>
+
+                                <strong id="texto-disponibilidade">
+                                    Disponível
+                                </strong>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- COMPLEMENTOS -->
+
+                    <div class="complementos-area">
+
+                        <div class="complementos-topo">
+
+                            <div>
+                                <h3>Complementos</h3>
+
+                                <p>
+                                    Adicione grupos como tamanho,
+                                    sabor ou adicionais.
+                                </p>
+                            </div>
+
+                            <button
+                                id="btn-novo-grupo"
+                                class="btn-secundario"
+                            >
+                                + Novo grupo
+                            </button>
+
+                        </div>
+
+
+                        <div id="lista-grupos">
+
+                            <!-- Grupos inseridos pelo JS -->
+
+                        </div>
+
+
+                        <div
+                            id="sem-grupos"
+                            class="sem-grupos"
+                        >
+                            Nenhum grupo de complemento adicionado.
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="acoes-modal">
+
+                <button
+                    class="btn-secundario"
+                    data-fechar="modal-produto"
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    type="button"
+                    id="btn-salvar-produto"
+                    class="btn-principal"
+                >
+                    Salvar produto
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script src="../../../../js/proteger.js"></script>
+    <script src="scripts.js"></script>
+
+</body>
+
+</html>

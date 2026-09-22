@@ -72,6 +72,8 @@ function mostrarMensagem(texto, tipo) {
    PRÉ-VISUALIZAÇÃO DA FOTO
 ================================================== */
 
+let fotoImagem = '';
+
 foto.addEventListener('change', () => {
 
     const arquivo = foto.files[0];
@@ -80,9 +82,16 @@ foto.addEventListener('change', () => {
         return;
     }
 
-    const imagem = URL.createObjectURL(arquivo);
+    const leitor = new FileReader();
 
-    previewFoto.src = imagem;
+    leitor.onload = evento => {
+
+        fotoImagem = evento.target.result;
+
+        previewFoto.src = fotoImagem;
+    };
+
+    leitor.readAsDataURL(arquivo);
 });
 
 
@@ -189,6 +198,102 @@ btnStatus.addEventListener('click', async () => {
 });
 
 
+
+/* ==================================================
+   ÁREA DE ENTREGA
+================================================== */
+
+const faixasEntrega = document.getElementById('faixas-entrega');
+const btnAdicionarFaixa = document.getElementById('btn-adicionar-faixa');
+
+
+/* ==================================================
+   ADICIONAR FAIXA
+================================================== */
+
+function adicionarFaixa(distancia = '', taxa = '') {
+
+    const novaFaixa = document.createElement('div');
+
+    novaFaixa.className = 'faixa-entrega';
+
+    novaFaixa.innerHTML = `
+        <div class="campo">
+            <label>Distância máxima</label>
+
+            <div class="campo-distancia">
+                <input
+                    type="number"
+                    class="distancia"
+                    min="0.1"
+                    step="0.1"
+                    placeholder="Ex: 5"
+                    value="${distancia}"
+                >
+
+                <span>km</span>
+            </div>
+        </div>
+
+        <div class="campo">
+            <label>Taxa de entrega</label>
+
+            <div class="campo-taxa">
+                <span>R$</span>
+
+                <input
+                    type="number"
+                    class="taxa"
+                    min="0"
+                    step="0.01"
+                    placeholder="Ex: 8,00"
+                    value="${taxa}"
+                >
+            </div>
+        </div>
+
+        <button
+            type="button"
+            class="btn-remover-faixa"
+            onclick="removerFaixa(this)"
+        >
+            Remover
+        </button>
+    `;
+
+    faixasEntrega.appendChild(novaFaixa);
+}
+
+
+/* ==================================================
+   BOTÃO ADICIONAR
+================================================== */
+
+btnAdicionarFaixa.addEventListener('click', () => {
+
+    adicionarFaixa();
+
+});
+
+
+function removerFaixa(botao) {
+
+    const todasFaixas = document.querySelectorAll('.faixa-entrega');
+
+    // Não permite remover a última faixa
+    if (todasFaixas.length === 1) {
+        mostrarMensagem(
+            'A loja precisa ter pelo menos uma faixa de entrega.',
+            'erro'
+        );
+
+        return;
+    }
+
+    botao.closest('.faixa-entrega').remove();
+}
+
+
 /* ==================================================
    SALVAR DADOS DA LOJA
 ================================================== */
@@ -201,6 +306,10 @@ btnSalvar.addEventListener('click', async () => {
     const endereco = document.getElementById('endereco').value;
 
 
+    /* ==================================================
+       PAGAMENTOS
+    ================================================== */
+
     const pagamentos = [];
 
     document
@@ -212,6 +321,10 @@ btnSalvar.addEventListener('click', async () => {
         });
 
 
+    /* ==================================================
+       VALIDAÇÃO
+    ================================================== */
+
     if (!nome || !categoria || !telefone || !endereco) {
 
         mostrarMensagem(
@@ -222,6 +335,10 @@ btnSalvar.addEventListener('click', async () => {
         return;
     }
 
+
+    /* ==================================================
+       HORÁRIOS
+    ================================================== */
 
     const horarios = [
 
@@ -277,12 +394,41 @@ btnSalvar.addEventListener('click', async () => {
     ];
 
 
-    try {
+    /* ==================================================
+       FAIXAS DE ENTREGA
+    ================================================== */
 
-        /*
-            Endpoint que iremos criar:
-            PUT /lojas
-        */
+    const faixas = [];
+
+    document
+        .querySelectorAll('.faixa-entrega')
+        .forEach(faixa => {
+
+            const distancia = faixa
+                .querySelector('.distancia')
+                .value;
+
+            const taxa = faixa
+                .querySelector('.taxa')
+                .value;
+
+            if (distancia && taxa) {
+
+                faixas.push({
+                    distancia_maxima: parseFloat(distancia),
+                    taxa: parseFloat(taxa)
+                });
+
+            }
+
+        });
+
+
+    /* ==================================================
+       ENVIO PARA A API
+    ================================================== */
+
+    try {
 
         const resposta = await fetch(
             'http://localhost:3000/lojas',
@@ -307,7 +453,11 @@ btnSalvar.addEventListener('click', async () => {
 
                     pagamentos: pagamentos,
 
-                    horarios: horarios
+                    horarios: horarios,
+
+                    faixas: faixas,
+
+                    foto: fotoImagem
 
                 })
             }
@@ -394,6 +544,16 @@ async function carregarDadosLoja() {
         document.getElementById('telefone').value = loja.telefone || '';
         document.getElementById('endereco').value = loja.endereco || '';
 
+
+        if (loja.foto) {
+
+            fotoImagem = loja.foto;
+
+            previewFoto.src = loja.foto;
+
+        }
+
+
         // Formas de pagamento
         document
             .querySelectorAll('input[name="pagamento"]')
@@ -454,6 +614,29 @@ async function carregarDadosLoja() {
                 horario.fechamento ? horario.fechamento.substring(0, 5) : '';
 
         });
+
+        /* ==================================================
+        FAIXAS DE ENTREGA
+        ================================================== */
+
+        faixasEntrega.innerHTML = '';
+
+        if (dados.faixas.length === 0) {
+
+            adicionarFaixa();
+
+        } else {
+
+            dados.faixas.forEach(faixa => {
+
+                adicionarFaixa(
+                    faixa.distancia_maxima,
+                    faixa.taxa
+                );
+
+            });
+
+        }
 
         // Status da loja
         lojaAberta = loja.aberta;

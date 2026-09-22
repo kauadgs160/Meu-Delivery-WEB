@@ -23,14 +23,19 @@
 
             <nav class="menu">
 
-                <a href="#" class="menu-item ativo">
+                <a href="./index.html" class="menu-item ativo">
                     <span>🏠</span>
                     Início
                 </a>
 
-                <a href="#" class="menu-item">
+                <a href="./index.html" class="menu-item">
                     <span>🏪</span>
                     Minha Loja
+                </a>
+
+                <a href="./cardapio/index.html" class="menu-item">
+                    <span>🍔</span>
+                    Cardápio
                 </a>
 
                 <a href="#" class="menu-item">
@@ -129,7 +134,7 @@
                                 <input
                                     type="text"
                                     id="nome"
-                                    placeholder="Ex: Lanches do Kauã"
+                                    placeholder="Ex: Lanches da Maria"
                                 >
                             </div>
 
@@ -441,6 +446,73 @@
 
             </section>
 
+                        <!-- ÁREA DE ENTREGA -->
+            <section class="card">
+
+                <div class="card-titulo">
+                    <div>
+                        <h2>Área de entrega</h2>
+                        <p>Defina até onde sua loja entrega e a taxa de cada distância.</p>
+                    </div>
+                </div>
+
+                <div id="faixas-entrega">
+
+                    <div class="faixa-entrega">
+
+                        <div class="campo">
+                            <label>Distância máxima</label>
+
+                            <div class="campo-distancia">
+                                <input
+                                    type="number"
+                                    class="distancia"
+                                    min="0.1"
+                                    step="0.1"
+                                    placeholder="Ex: 2"
+                                >
+
+                                <span>km</span>
+                            </div>
+                        </div>
+
+                        <div class="campo">
+                            <label>Taxa de entrega</label>
+
+                            <div class="campo-taxa">
+                                <span>R$</span>
+
+                                <input
+                                    type="number"
+                                    class="taxa"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Ex: 5,00"
+                                >
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="btn-remover-faixa"
+                            onclick="removerFaixa(this)"
+                        >
+                            Remover
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <button
+                    type="button"
+                    id="btn-adicionar-faixa"
+                    class="btn-adicionar-faixa"
+                >
+                    + Adicionar faixa
+                </button>
+
+            </section>
 
         </main>
 
