@@ -2,7 +2,72 @@
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const db = require('./db');
+
+function autenticarToken(req, res, next) {
+
+    const autorizacao = req.headers.authorization;
+
+    if (!autorizacao) {
+        return res.status(401).json({
+            mensagem: 'Token não informado.'
+        });
+    }
+
+    const partes = autorizacao.split(' ');
+
+    if (
+        partes.length !== 2 ||
+        partes[0] !== 'Bearer'
+    ) {
+        return res.status(401).json({
+            mensagem: 'Token inválido.'
+        });
+    }
+
+    const token = partes[1];
+
+    try {
+
+        const usuario = jwt.verify(
+            token,
+            process.env.JWT_SECRET
+        );
+
+        req.usuario = usuario;
+
+        next();
+
+    } catch (erro) {
+
+        return res.status(401).json({
+            mensagem: 'Token inválido ou expirado.'
+        });
+    }
+}
+
+
+function autorizarPerfil(...perfisPermitidos) {
+
+    return (req, res, next) => {
+
+        if (!req.usuario) {
+            return res.status(401).json({
+                mensagem: 'Usuário não autenticado.'
+            });
+        }
+
+        if (!perfisPermitidos.includes(req.usuario.perfil)) {
+            return res.status(403).json({
+                mensagem: 'Acesso não permitido para este perfil.'
+            });
+        }
+
+        next();
+    };
+}
+
 
 const app = express();
 
@@ -292,8 +357,20 @@ app.post('/login', async (req, res) => {
             });
         }
 
+        const token = jwt.sign(
+            {
+                id: usuario.id,
+                perfil: usuario.perfil
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: '8h'
+            }
+        );
+
         res.status(200).json({
             mensagem: 'Login realizado com sucesso!',
+            token: token,
             usuario: {
                 id: usuario.id,
                 nome: usuario.nome,
@@ -315,7 +392,11 @@ app.post('/login', async (req, res) => {
 
 
 
-app.put('/lojas', async (req, res) => {
+app.put(
+    '/lojas',
+    autenticarToken,
+    autorizarPerfil('LOJA'),
+    async (req, res) => {
 
     const {
     usuario_id,
@@ -1927,6 +2008,23 @@ app.get('/lojas/:loja_id/aberta-agora', async (req, res) => {
         });
     }
 });
+
+
+
+app.get('/teste-token', autenticarToken, (req, res) => {
+
+    res.json({
+        mensagem: 'Token válido.',
+        usuario: req.usuario
+    });
+
+});
+
+
+
+
+
+
 
 
 

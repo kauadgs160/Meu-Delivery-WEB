@@ -44,6 +44,11 @@ try {
             JSON.stringify(dados.usuario)
         );
 
+        localStorage.setItem(
+            'token',
+            dados.token
+        );
+
         const perfil = dados.usuario.perfil;
 
         if (perfil === 'ADMINISTRADOR') {
