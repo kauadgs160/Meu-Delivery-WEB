@@ -89,6 +89,93 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
 
 
 
+function verificarLojaAberta(loja, horarios) {
+
+    // O interruptor da loja precisa estar ligado
+    if (!loja.aberta) {
+        return false;
+    }
+
+    // Horário atual de São Paulo/Brasília
+    const agora = new Date();
+
+    const partesData = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        weekday: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+    }).formatToParts(agora);
+
+    const diaAtual = partesData
+        .find(parte => parte.type === 'weekday')
+        .value
+        .toLowerCase();
+
+    const horaAtual = partesData
+        .find(parte => parte.type === 'hour')
+        .value;
+
+    const minutoAtual = partesData
+        .find(parte => parte.type === 'minute')
+        .value;
+
+    const horaAtualMinutos =
+        Number(horaAtual) * 60 +
+        Number(minutoAtual);
+
+    const mapaDias = {
+        'segunda-feira': 'SEGUNDA',
+        'terça-feira': 'TERCA',
+        'quarta-feira': 'QUARTA',
+        'quinta-feira': 'QUINTA',
+        'sexta-feira': 'SEXTA',
+        'sábado': 'SABADO',
+        'domingo': 'DOMINGO'
+    };
+
+    const diaBanco = mapaDias[diaAtual];
+
+    const horario = horarios.find(
+        item => item.dia === diaBanco
+    );
+
+    // Não funciona nesse dia
+    if (!horario || !horario.ativo) {
+        return false;
+    }
+
+    // Sem horário definido
+    if (!horario.abertura || !horario.fechamento) {
+        return false;
+    }
+
+    const [horaAbertura, minutoAbertura] =
+        horario.abertura
+            .substring(0, 5)
+            .split(':')
+            .map(Number);
+
+    const [horaFechamento, minutoFechamento] =
+        horario.fechamento
+            .substring(0, 5)
+            .split(':')
+            .map(Number);
+
+    const aberturaMinutos =
+        horaAbertura * 60 +
+        minutoAbertura;
+
+    const fechamentoMinutos =
+        horaFechamento * 60 +
+        minutoFechamento;
+
+    return (
+        horaAtualMinutos >= aberturaMinutos &&
+        horaAtualMinutos <= fechamentoMinutos
+    );
+}
+
 
 
 
@@ -1676,6 +1763,48 @@ app.post('/pedidos', async (req, res) => {
     try {
         await cliente.query('BEGIN');
 
+        // Verifica se a loja existe
+        const lojaResultado = await cliente.query(
+            `SELECT id, nome, aberta
+            FROM loja
+            WHERE id = $1`,
+            [loja_id]
+        );
+
+        if (lojaResultado.rows.length === 0) {
+
+            await cliente.query('ROLLBACK');
+
+            return res.status(404).json({
+                mensagem: 'Loja não encontrada.'
+            });
+        }
+
+        const loja = lojaResultado.rows[0];
+
+        // Busca os horários da loja
+        const horariosResultado = await cliente.query(
+            `SELECT dia, ativo, abertura, fechamento
+            FROM horario_loja
+            WHERE loja_id = $1`,
+            [loja_id]
+        );
+
+        // Verifica interruptor + horário
+        const lojaAbertaAgora = verificarLojaAberta(
+            loja,
+            horariosResultado.rows
+        );
+
+        if (!lojaAbertaAgora) {
+
+            await cliente.query('ROLLBACK');
+
+            return res.status(400).json({
+                mensagem: 'A loja está fechada no momento.'
+            });
+        }
+
         // Busca a taxa atual da loja para a distância informada
         const resultadoFaixa = await cliente.query(
             `SELECT distancia_maxima, taxa
@@ -1747,6 +1876,57 @@ app.post('/pedidos', async (req, res) => {
 
 
 
+
+
+
+
+app.get('/lojas/:loja_id/aberta-agora', async (req, res) => {
+
+    const { loja_id } = req.params;
+
+    try {
+
+        const lojaResultado = await db.query(
+            `SELECT id, nome, aberta
+             FROM loja
+             WHERE id = $1`,
+            [loja_id]
+        );
+
+        if (lojaResultado.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: 'Loja não encontrada.'
+            });
+        }
+
+        const loja = lojaResultado.rows[0];
+
+        const horariosResultado = await db.query(
+            `SELECT dia, ativo, abertura, fechamento
+             FROM horario_loja
+             WHERE loja_id = $1`,
+            [loja_id]
+        );
+
+        const abertaAgora = verificarLojaAberta(
+            loja,
+            horariosResultado.rows
+        );
+
+        res.json({
+            loja_id: Number(loja_id),
+            aberta_agora: abertaAgora
+        });
+
+    } catch (erro) {
+
+        console.error(erro);
+
+        res.status(500).json({
+            mensagem: 'Erro ao verificar horário da loja.'
+        });
+    }
+});
 
 
 
